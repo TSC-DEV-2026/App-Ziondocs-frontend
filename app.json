@@ -1,0 +1,44 @@
+{
+  "expo": {
+    "name": "Consulta de Documentos Wecanbr",
+    "slug": "consulta-documentos-wecanbr",
+    "scheme": "wecanbrdocs",
+    "version": "1.0.0",
+    "orientation": "portrait",
+    "icon": "./assets/icon.png",
+    "userInterfaceStyle": "light",
+    "assetBundlePatterns": [
+      "**/*"
+    ],
+    "plugins": [
+      "expo-router",
+      "expo-font"
+    ],
+    "experiments": {
+      "typedRoutes": true
+    },
+    "android": {
+      "package": "com.wecanbr.consultadocumentos",
+      "adaptiveIcon": {
+        "foregroundImage": "./assets/adaptive-icon.png",
+        "backgroundColor": "#ffffff"
+      }
+    },
+    "ios": {
+      "bundleIdentifier": "com.wecanbr.consultadocumentos",
+      "supportsTablet": true
+    },
+    "web": {
+      "bundler": "metro",
+      "output": "single"
+    },
+    "extra": {
+      "apiUrlProd": "https://rh.ziondocs.com.br",
+      "apiUrlDev": "http://localhost:8000",
+      "router": {},
+      "eas": {
+        "projectId": "63a224cb-de47-4e4c-a23a-1705a4148812"
+      }
+    }
+  }
+}
