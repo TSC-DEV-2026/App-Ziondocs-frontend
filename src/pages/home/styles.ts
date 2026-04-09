@@ -12,13 +12,14 @@ export const styles = StyleSheet.create({
   },
 
   scrollContent: {
-    paddingBottom: 0,
+    flexGrow: 1,
+    justifyContent: "space-between",
   },
 
   mainContent: {
-
     paddingHorizontal: 16,
     paddingTop: 28,
+    paddingBottom: 24,
   },
 
   grid: {

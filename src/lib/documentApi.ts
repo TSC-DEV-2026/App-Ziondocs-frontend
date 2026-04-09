@@ -164,10 +164,16 @@ export async function searchDocuments(params: {
   }
 
   if (params.kind === "informe_rendimentos") {
-    const { data } = await api.post("/documents/informe-rendimentos/buscar", {
+    const body: Record<string, string> = {
       cpf,
       competencia: competencia.slice(0, 4),
-    });
+    };
+
+    if (empresa) {
+      body.empresa = empresa;
+    }
+
+    const { data } = await api.post("/documents/informe-rendimentos/buscar", body);
     return data;
   }
 
@@ -340,12 +346,18 @@ export async function mountPdf(params: {
   }
 
   if (params.kind === "informe_rendimentos") {
+    const body: Record<string, string> = {
+      cpf,
+      competencia: competencia.slice(0, 4),
+    };
+
+    if (empresa) {
+      body.empresa = empresa;
+    }
+
     const { data } = await api.post<PdfResponse>(
       "/documents/informe-rendimentos/montar",
-      {
-        cpf,
-        competencia: competencia.slice(0, 4),
-      },
+      body,
     );
     return data;
   }

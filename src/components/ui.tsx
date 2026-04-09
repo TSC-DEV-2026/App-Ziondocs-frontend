@@ -48,9 +48,7 @@ export function Screen({
       {children}
     </ScrollView>
   ) : (
-    <View style={[contentContainerStyle]}>
-      {children}
-    </View>
+    <View style={[contentContainerStyle]}>{children}</View>
   );
 
   if (gradientColors?.length) {
@@ -122,12 +120,20 @@ export function InputField({
   label,
   error,
   secureTextEntry,
+  value,
+  style,
   ...props
-}: TextInputProps & { label: string; error?: string }) {
+}: TextInputProps & {
+  label: string;
+  error?: string;
+  style?: StyleProp<TextStyle>;
+}) {
   const [isFocused, setIsFocused] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
 
   const isPasswordField = !!secureTextEntry;
+  const normalizedValue =
+    typeof value === "string" ? value : value == null ? "" : String(value);
 
   return (
     <View style={styles.fieldWrap}>
@@ -141,7 +147,9 @@ export function InputField({
         ]}
       >
         <TextInput
-          style={styles.input}
+          {...props}
+          value={normalizedValue}
+          style={[styles.input, style]}
           placeholderTextColor="#7b8b82"
           secureTextEntry={isPasswordField ? !showPassword : false}
           onFocus={(e) => {
@@ -152,7 +160,6 @@ export function InputField({
             setIsFocused(false);
             props.onBlur?.(e);
           }}
-          {...props}
         />
 
         {isPasswordField ? (
@@ -232,6 +239,54 @@ export function Button({
         <Text style={textStyles}>{title}</Text>
       )}
     </Pressable>
+  );
+}
+
+export function Badge({
+  children,
+  style,
+  textStyle,
+}: {
+  children: React.ReactNode;
+  style?: StyleProp<ViewStyle>;
+  textStyle?: StyleProp<TextStyle>;
+}) {
+  return (
+    <View style={[styles.badge, style]}>
+      <Text style={[styles.badgeText, textStyle]}>{children}</Text>
+    </View>
+  );
+}
+
+export function LoadingBlock({
+  text = "Carregando...",
+  style,
+}: {
+  text?: string;
+  style?: StyleProp<ViewStyle>;
+}) {
+  return (
+    <View style={[styles.loadingBlock, style]}>
+      <ActivityIndicator size="small" color={colors.primaryDark} />
+      <Text style={styles.loadingText}>{text}</Text>
+    </View>
+  );
+}
+
+export function EmptyState({
+  title,
+  description,
+  style,
+}: {
+  title: string;
+  description?: string;
+  style?: StyleProp<ViewStyle>;
+}) {
+  return (
+    <View style={[styles.emptyState, style]}>
+      <Text style={styles.emptyTitle}>{title}</Text>
+      {description ? <Text style={styles.emptyDescription}>{description}</Text> : null}
+    </View>
   );
 }
 
@@ -359,5 +414,57 @@ export const styles = StyleSheet.create({
     color: colors.text,
     fontSize: 15,
     fontWeight: "700",
+  },
+  badge: {
+    alignSelf: "flex-start",
+    backgroundColor: "#eef6f0",
+    borderColor: colors.border,
+    borderWidth: 1,
+    borderRadius: 999,
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+  },
+  badgeText: {
+    color: colors.text,
+    fontSize: 13,
+    fontWeight: "700",
+  },
+  loadingBlock: {
+    backgroundColor: colors.card,
+    borderWidth: 1,
+    borderColor: colors.border,
+    borderRadius: 16,
+    paddingHorizontal: 16,
+    paddingVertical: 18,
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 10,
+  },
+  loadingText: {
+    color: colors.text,
+    fontSize: 14,
+    fontWeight: "600",
+  },
+  emptyState: {
+    backgroundColor: colors.card,
+    borderWidth: 1,
+    borderColor: colors.border,
+    borderRadius: 18,
+    padding: 18,
+    gap: 8,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  emptyTitle: {
+    color: colors.text,
+    fontSize: 16,
+    fontWeight: "800",
+    textAlign: "center",
+  },
+  emptyDescription: {
+    color: colors.muted,
+    fontSize: 14,
+    lineHeight: 20,
+    textAlign: "center",
   },
 });

@@ -1,30 +1,25 @@
 import React from "react";
-import { Pressable, Text, View } from "react-native";
+import { Image, Pressable, View } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 import { styles } from "./styles";
 
 export type BrandType = "ast" | "wecan" | "default";
 
 function BrandLogo({ brandType }: { brandType: BrandType }) {
-  if (brandType === "ast") {
-    return (
-      <View style={styles.logoBox}>
-        <Text style={styles.logoText}>AST</Text>
-      </View>
-    );
-  }
-
-  if (brandType === "wecan") {
-    return (
-      <View style={styles.logoBox}>
-        <Text style={styles.logoText}>WE CAN</Text>
-      </View>
-    );
-  }
+  const logoSource =
+    brandType === "ast"
+      ? require("../../../../assets/ast.jpg")
+      : brandType === "wecan"
+      ? require("../../../../assets/wecan.jpg")
+      : require("../../../../assets/logo.png");
 
   return (
     <View style={styles.logoBox}>
-      <Text style={styles.logoText}>RH</Text>
+      <Image
+        source={logoSource}
+        style={styles.logoImage}
+        resizeMode="contain"
+      />
     </View>
   );
 }

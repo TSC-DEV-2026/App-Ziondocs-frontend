@@ -1,15 +1,13 @@
-
-import React from "react";
+import React, { useState } from "react";
 import { Alert } from "react-native";
-import { router } from "expo-router";
 import { Controller, useForm } from "react-hook-form";
 import { z } from "zod";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { api, friendlyErrorMessage } from "@/lib/api";
 import { useAuth } from "@/contexts/AuthContext";
-import { Button, InputField, Screen } from "@/components/ui";
-import { HeaderCard } from "@/components/HeaderCard";
+import { InputField, Screen } from "@/components/ui";
 import { ChangePasswordCard } from "./ui";
+import { styles } from "./styles";
 
 const schema = z
   .object({
@@ -24,9 +22,22 @@ const schema = z
 type FormData = z.infer<typeof schema>;
 
 export default function ChangePasswordPage() {
-  const { user, loginPassword, clearLoginPassword, logout, mustChangePassword } = useAuth();
+  const {
+    user,
+    loginPassword,
+    clearLoginPassword,
+    logout,
+    mustChangePassword,
+  } = useAuth();
 
-  const form = useForm<FormData>({
+  const [pageError, setPageError] = useState("");
+  const [isLeaving, setIsLeaving] = useState(false);
+
+  const {
+    control,
+    handleSubmit,
+    formState: { errors, isSubmitting },
+  } = useForm<FormData>({
     resolver: zodResolver(schema),
     defaultValues: {
       novaSenha: "",
@@ -36,13 +47,21 @@ export default function ChangePasswordPage() {
 
   const onSubmit = async (data: FormData) => {
     try {
+      if (isLeaving) return;
+
+      setPageError("");
+
       if (!user?.cpf) {
-        Alert.alert("Erro", "Não foi possível identificar o CPF do usuário.");
+        const msg = "Não foi possível identificar o CPF do usuário.";
+        setPageError(msg);
+        Alert.alert("Erro", msg);
         return;
       }
 
       if (!loginPassword) {
-        Alert.alert("Erro", "A senha atual não está mais disponível. Faça login novamente.");
+        const msg = "A senha atual não está mais disponível. Faça login novamente.";
+        setPageError(msg);
+        Alert.alert("Erro", msg);
         return;
       }
 
@@ -55,51 +74,64 @@ export default function ChangePasswordPage() {
       clearLoginPassword();
       Alert.alert("Sucesso", "Senha atualizada. Faça login novamente.");
       await logout();
-      router.replace("/login");
     } catch (error) {
-      Alert.alert("Erro", friendlyErrorMessage(error, "Falha ao atualizar a senha."));
+      const msg = friendlyErrorMessage(error, "Falha ao atualizar a senha.");
+      setPageError(msg);
+      Alert.alert("Erro", msg);
+    }
+  };
+
+  const handleBackToLogin = async () => {
+    if (isLeaving || isSubmitting) return;
+
+    try {
+      setIsLeaving(true);
+      await logout();
+    } catch {
+      setIsLeaving(false);
     }
   };
 
   return (
-    <Screen>
-      <HeaderCard
-        title="Troca obrigatória de senha"
-        subtitle="Primeiro acesso / senha pendente"
-      />
-      <ChangePasswordCard showWarning={!loginPassword}>
+    <Screen
+      gradientColors={["#44F020", "#2ECC4A"]}
+      contentContainerStyle={styles.container}
+    >
+      <ChangePasswordCard
+        showWarning={!loginPassword}
+        pageError={pageError}
+        isSubmitting={isSubmitting}
+        isLeaving={isLeaving}
+        onSubmit={handleSubmit(onSubmit)}
+        onBackToLogin={handleBackToLogin}
+        disableSubmit={!mustChangePassword || !loginPassword || isLeaving}
+      >
         <Controller
-          control={form.control}
+          control={control}
           name="novaSenha"
           render={({ field: { value, onChange } }) => (
             <InputField
               label="Nova senha"
               value={value}
               onChangeText={onChange}
-              error={form.formState.errors.novaSenha?.message}
+              error={errors.novaSenha?.message}
               secureTextEntry
             />
           )}
         />
 
         <Controller
-          control={form.control}
+          control={control}
           name="confirmarSenha"
           render={({ field: { value, onChange } }) => (
             <InputField
               label="Confirmar nova senha"
               value={value}
               onChangeText={onChange}
-              error={form.formState.errors.confirmarSenha?.message}
+              error={errors.confirmarSenha?.message}
               secureTextEntry
             />
           )}
-        />
-
-        <Button
-          title="Atualizar senha"
-          onPress={form.handleSubmit(onSubmit)}
-          disabled={!mustChangePassword}
         />
       </ChangePasswordCard>
     </Screen>

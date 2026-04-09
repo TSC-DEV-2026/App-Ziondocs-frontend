@@ -44,7 +44,7 @@ export function DocumentsScreen() {
         empresa,
         cliente: empresa
       });
-      const list = result.map((item) => `${item.ano}${item.mes}`);
+      const list = result.map((item: { ano: any; mes: any; }) => `${item.ano}${item.mes}`);
       setCompetencias(list);
       if (!competencia && list[0]) {
         setCompetencia(list[0]);

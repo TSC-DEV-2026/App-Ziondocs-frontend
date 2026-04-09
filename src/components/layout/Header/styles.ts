@@ -11,18 +11,20 @@ export const styles = StyleSheet.create({
   },
 
   logoBox: {
-    height: 38,
-    paddingHorizontal: 12,
+    width: 64,
+    height: 46,
     borderRadius: 8,
     backgroundColor: "#fff",
     alignItems: "center",
     justifyContent: "center",
+    overflow: "hidden",
+    paddingHorizontal: 6,
+    paddingVertical: 4,
   },
 
-  logoText: {
-    color: "#4d5f46",
-    fontSize: 13,
-    fontWeight: "900",
+  logoImage: {
+    width: "100%",
+    height: "100%",
   },
 
   menuButton: {

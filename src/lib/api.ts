@@ -137,7 +137,7 @@ export function friendlyErrorMessage(error: unknown, fallback = "Ocorreu um erro
       case 400:
         return err?.response?.data?.detail || "A solicitação não pôde ser processada.";
       case 401:
-        return "Sua sessão expirou. Faça login novamente.";
+        return "Credenciais inválidas ou sessão expirada. Faça login novamente.";
       case 403:
         return err?.response?.data?.detail || "Você não tem permissão para executar esta ação.";
       case 404:

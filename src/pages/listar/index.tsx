@@ -93,6 +93,22 @@ type HoleriteItemExt = SearchDocumentItem & {
   tipo_calculo?: string;
 };
 
+type InformeEmpresaItem = {
+  empresa: string;
+  filial?: string;
+  nome_empresa?: string;
+};
+
+type UserMeResponse = {
+  cpf?: string;
+  dados?: Array<{ id: string; nome: string; matricula: string }>;
+  empresa?: Array<{
+    empresa: string | number;
+    filial?: string | number;
+    nome_empresa?: string | null;
+  }>;
+};
+
 function getClienteCode(user: any): string | null {
   const direct = user?.cliente;
 
@@ -574,36 +590,6 @@ function buildRecibosPayload(args: {
   };
 }
 
-function buildEmpresasMap(
-  items: MeEmpresaItem[],
-): Map<string, EmpresaAgrupada> {
-  const map = new Map<string, EmpresaAgrupada>();
-
-  for (const item of items) {
-    const id = String(item.id || "").trim();
-    const nome = String(item.nome || "").trim();
-    const matricula = String(item.matricula || "").trim();
-
-    if (!id) continue;
-
-    if (!map.has(id)) {
-      map.set(id, {
-        id,
-        nome,
-        matriculas: matricula ? [matricula] : [],
-      });
-      continue;
-    }
-
-    const current = map.get(id)!;
-    if (matricula && !current.matriculas.includes(matricula)) {
-      current.matriculas.push(matricula);
-    }
-  }
-
-  return map;
-}
-
 function sortEmpresas(items: EmpresaAgrupada[]) {
   return [...items].sort((a, b) => a.nome.localeCompare(b.nome, "pt-BR"));
 }
@@ -641,10 +627,13 @@ export default function ListarPage() {
     selectedMatricula?: string;
     selectedEmpresaIdGen?: string;
     selectedMatriculaGen?: string;
+    selectedEmpresaInforme?: string;
   }>();
 
   const { user, isAuthenticated, isLoading, logout } = useAuth();
   const scrollRef = useRef<ScrollView>(null);
+  const holeriteCompetenciasRequestRef = useRef(0);
+  const meInitializedRef = useRef(false);
 
   const [menuOpen, setMenuOpen] = useState(false);
   const [cpf, setCpf] = useState(onlyDigits(String(params.cpf ?? "")));
@@ -659,6 +648,9 @@ export default function ListarPage() {
   const [meLoading, setMeLoading] = useState(false);
   const [meCpf, setMeCpf] = useState("");
   const [meData, setMeData] = useState<MeEmpresaItem[]>([]);
+  const [meInformeEmpresas, setMeInformeEmpresas] = useState<
+    InformeEmpresaItem[]
+  >([]);
 
   const [selectedEmpresaId, setSelectedEmpresaId] = useState(
     String(params.selectedEmpresaId ?? ""),
@@ -674,7 +666,12 @@ export default function ListarPage() {
     String(params.selectedMatriculaGen ?? ""),
   );
 
+  const [selectedEmpresaInforme, setSelectedEmpresaInforme] = useState(
+    String(params.selectedEmpresaInforme ?? ""),
+  );
+
   const [loadingPreviewId, setLoadingPreviewId] = useState<string | null>(null);
+  const [loadingHolCompetencias, setLoadingHolCompetencias] = useState(false);
 
   const [competenciasHol, setCompetenciasHol] = useState<CompetenciaItem[]>([]);
   const [selectedYearHol, setSelectedYearHol] = useState<number | null>(null);
@@ -718,6 +715,7 @@ export default function ListarPage() {
     setSelectedMatricula(String(params.selectedMatricula ?? ""));
     setSelectedEmpresaIdGen(String(params.selectedEmpresaIdGen ?? ""));
     setSelectedMatriculaGen(String(params.selectedMatriculaGen ?? ""));
+    setSelectedEmpresaInforme(String(params.selectedEmpresaInforme ?? ""));
   }, [
     params.cpf,
     params.matricula,
@@ -727,6 +725,7 @@ export default function ListarPage() {
     params.selectedMatricula,
     params.selectedEmpresaIdGen,
     params.selectedMatriculaGen,
+    params.selectedEmpresaInforme,
   ]);
 
   const screenTitle = useMemo(() => {
@@ -811,11 +810,61 @@ export default function ListarPage() {
     return String(params.template || params.id || "0");
   }, [params.template, params.id]);
 
-  const empresasMap = useMemo(() => buildEmpresasMap(meData), [meData]);
+  const empresasMap = useMemo(() => {
+    const map = new Map<string, EmpresaAgrupada>();
+
+    for (const item of meData) {
+      const id = String(item.id || "").trim();
+      const nome = String(item.nome || "").trim();
+      const matriculaItem = String(item.matricula || "").trim();
+
+      if (!id) continue;
+
+      if (!map.has(id)) {
+        map.set(id, {
+          id,
+          nome,
+          matriculas: matriculaItem ? [matriculaItem] : [],
+        });
+        continue;
+      }
+
+      const current = map.get(id)!;
+      if (matriculaItem && !current.matriculas.includes(matriculaItem)) {
+        current.matriculas.push(matriculaItem);
+      }
+    }
+
+    return map;
+  }, [meData]);
 
   const empresaOptions = useMemo(() => {
     return sortEmpresas(Array.from(empresasMap.values()));
   }, [empresasMap]);
+
+  const informeEmpresaOptions = useMemo(() => {
+    const map = new Map<string, InformeEmpresaItem>();
+
+    for (const item of meInformeEmpresas) {
+      const id = String(item.empresa || "").trim();
+      if (!id) continue;
+
+      if (!map.has(id)) {
+        map.set(id, {
+          empresa: id,
+          filial: String(item.filial || "").trim(),
+          nome_empresa: String(item.nome_empresa || "").trim(),
+        });
+      }
+    }
+
+    return Array.from(map.values()).sort((a, b) =>
+      String(a.nome_empresa || a.empresa).localeCompare(
+        String(b.nome_empresa || b.empresa),
+        "pt-BR",
+      ),
+    );
+  }, [meInformeEmpresas]);
 
   const selectedEmpresaObj = useMemo(() => {
     if (!selectedEmpresaId) return null;
@@ -826,6 +875,15 @@ export default function ListarPage() {
     if (!selectedEmpresaIdGen) return null;
     return empresasMap.get(selectedEmpresaIdGen) ?? null;
   }, [empresasMap, selectedEmpresaIdGen]);
+
+  const selectedEmpresaInformeObj = useMemo(() => {
+    if (!selectedEmpresaInforme) return null;
+    return (
+      informeEmpresaOptions.find(
+        (item) => String(item.empresa) === String(selectedEmpresaInforme),
+      ) ?? null
+    );
+  }, [informeEmpresaOptions, selectedEmpresaInforme]);
 
   const matriculaOptions = useMemo(() => {
     return selectedEmpresaObj?.matriculas ?? [];
@@ -886,6 +944,10 @@ export default function ListarPage() {
     return groupHoleriteItems(items);
   }, [documentMode, items]);
 
+  const isHoleriteSelectionLocked = useMemo(() => {
+    return loadingHolCompetencias || loadingSearch || !!loadingPreviewId;
+  }, [loadingHolCompetencias, loadingSearch, loadingPreviewId]);
+
   const saveParams = (
     next?: Partial<{
       cpf: string;
@@ -896,6 +958,7 @@ export default function ListarPage() {
       selectedMatricula: string;
       selectedEmpresaIdGen: string;
       selectedMatriculaGen: string;
+      selectedEmpresaInforme: string;
     }>,
   ) => {
     router.setParams({
@@ -911,6 +974,8 @@ export default function ListarPage() {
       selectedMatricula: next?.selectedMatricula ?? selectedMatricula,
       selectedEmpresaIdGen: next?.selectedEmpresaIdGen ?? selectedEmpresaIdGen,
       selectedMatriculaGen: next?.selectedMatriculaGen ?? selectedMatriculaGen,
+      selectedEmpresaInforme:
+        next?.selectedEmpresaInforme ?? selectedEmpresaInforme,
     } as any);
   };
 
@@ -927,6 +992,13 @@ export default function ListarPage() {
     idGed?: string;
     itemJson?: string;
   }) => {
+    const empresaNome =
+      args.kind === "holerite"
+        ? selectedEmpresaObj?.nome || ""
+        : args.kind === "informe_rendimentos"
+          ? selectedEmpresaInformeObj?.nome_empresa || ""
+          : selectedEmpresaObjGen?.nome || "";
+
     router.push({
       pathname: "/visualizar" as any,
       params: {
@@ -939,7 +1011,7 @@ export default function ListarPage() {
         cpf: args.cpf,
         matricula: args.matricula || "",
         empresa: args.empresa || "",
-        empresaNome: selectedEmpresaObjGen?.nome || "",
+        empresaNome,
         competencia: args.competencia || "",
         lote: args.lote || "",
         uuid: args.uuid,
@@ -949,6 +1021,7 @@ export default function ListarPage() {
         selectedMatricula,
         selectedEmpresaIdGen,
         selectedMatriculaGen,
+        selectedEmpresaInforme,
       },
     } as any);
   };
@@ -966,6 +1039,9 @@ export default function ListarPage() {
     keepEmpresa?: boolean;
     keepMatricula?: boolean;
   }) => {
+    holeriteCompetenciasRequestRef.current += 1;
+    setLoadingHolCompetencias(false);
+
     if (!opts?.keepEmpresa) {
       setSelectedEmpresaId("");
     }
@@ -992,31 +1068,33 @@ export default function ListarPage() {
     setCompetenciasBen([]);
     setCompetenciasFerias([]);
     setCompetenciasGen([]);
-    setCompetenciasInforme([]);
-
     setSelectedYearBen(null);
     setSelectedYearFerias(null);
     setSelectedYearGen(null);
-
     setItems([]);
-
     setCompetenciasBenLoaded(false);
     setCompetenciasFeriasLoaded(false);
     setCompetenciasGenLoaded(false);
+  };
+
+  const resetInformeFlow = (keepEmpresa = false) => {
+    if (!keepEmpresa) {
+      setSelectedEmpresaInforme("");
+    }
+    setCompetenciasInforme([]);
+    setItems([]);
     setCompetenciasInformeLoaded(false);
   };
 
   useEffect(() => {
     if (!isNonGestor) return;
+    if (meInitializedRef.current) return;
 
     const loadMe = async () => {
       try {
         setMeLoading(true);
 
-        const response = await api.get<{
-          cpf?: string;
-          dados?: Array<{ id: string; nome: string; matricula: string }>;
-        }>("/user/me");
+        const response = await api.get<UserMeResponse>("/user/me");
 
         const cpfApi = onlyDigits(response.data?.cpf || user?.cpf || "");
         const dadosApi = Array.isArray(response.data?.dados)
@@ -1025,23 +1103,59 @@ export default function ListarPage() {
             ? user.dados
             : [];
 
+        const empresasInformeApi = Array.isArray(response.data?.empresa)
+          ? response.data.empresa
+          : [];
+
         const normalized: MeEmpresaItem[] = dadosApi.map((item) => ({
           id: String(item.id || "").trim(),
           nome: String(item.nome || "").trim(),
           matricula: String(item.matricula || "").trim(),
         }));
 
+        const normalizedInforme: InformeEmpresaItem[] = empresasInformeApi.map(
+          (item) => ({
+            empresa: String(item.empresa || "").trim(),
+            filial: String(item.filial || "").trim(),
+            nome_empresa: String(item.nome_empresa || "").trim(),
+          }),
+        );
+
         setMeCpf(cpfApi);
         setMeData(normalized);
+        setMeInformeEmpresas(normalizedInforme);
         setCpf(cpfApi);
 
-        const map = buildEmpresasMap(normalized);
+        const map = new Map<string, EmpresaAgrupada>();
+        for (const item of normalized) {
+          const id = String(item.id || "").trim();
+          const nome = String(item.nome || "").trim();
+          const matriculaItem = String(item.matricula || "").trim();
+
+          if (!id) continue;
+
+          if (!map.has(id)) {
+            map.set(id, {
+              id,
+              nome,
+              matriculas: matriculaItem ? [matriculaItem] : [],
+            });
+            continue;
+          }
+
+          const current = map.get(id)!;
+          if (matriculaItem && !current.matriculas.includes(matriculaItem)) {
+            current.matriculas.push(matriculaItem);
+          }
+        }
+
         const empresasOrdenadas = sortEmpresas(Array.from(map.values()));
 
         let nextEmpresaId = String(params.selectedEmpresaId || "").trim();
         let nextMatricula = String(params.selectedMatricula || "").trim();
         let nextEmpresaIdGen = String(params.selectedEmpresaIdGen || "").trim();
         let nextMatriculaGen = String(params.selectedMatriculaGen || "").trim();
+        let nextEmpresaInforme = String(params.selectedEmpresaInforme || "").trim();
 
         if (
           !nextEmpresaId &&
@@ -1050,6 +1164,10 @@ export default function ListarPage() {
         ) {
           nextEmpresaId = empresasOrdenadas[0].id;
           nextEmpresaIdGen = empresasOrdenadas[0].id;
+        }
+
+        if (!nextEmpresaInforme && normalizedInforme.length === 1) {
+          nextEmpresaInforme = normalizedInforme[0].empresa;
         }
 
         const empresaHol = nextEmpresaId ? map.get(nextEmpresaId) : null;
@@ -1067,6 +1185,7 @@ export default function ListarPage() {
         setSelectedMatricula(nextMatricula);
         setSelectedEmpresaIdGen(nextEmpresaIdGen);
         setSelectedMatriculaGen(nextMatriculaGen);
+        setSelectedEmpresaInforme(nextEmpresaInforme);
 
         saveParams({
           cpf: formatCpfInput(cpfApi),
@@ -1074,7 +1193,10 @@ export default function ListarPage() {
           selectedMatricula: nextMatricula,
           selectedEmpresaIdGen: nextEmpresaIdGen,
           selectedMatriculaGen: nextMatriculaGen,
+          selectedEmpresaInforme: nextEmpresaInforme,
         });
+
+        meInitializedRef.current = true;
       } catch {
         setMeCpf(onlyDigits(user?.cpf || ""));
       } finally {
@@ -1083,14 +1205,7 @@ export default function ListarPage() {
     };
 
     void loadMe();
-  }, [
-    isNonGestor,
-    user,
-    params.selectedEmpresaId,
-    params.selectedMatricula,
-    params.selectedEmpresaIdGen,
-    params.selectedMatriculaGen,
-  ]);
+  }, [isNonGestor, user, params.selectedEmpresaInforme]);
 
   useEffect(() => {
     if (!isNonGestor) return;
@@ -1140,8 +1255,12 @@ export default function ListarPage() {
 
     if (!matriculaEfetiva) return;
 
+    const requestId = ++holeriteCompetenciasRequestRef.current;
+    let cancelled = false;
+
     const loadCompetencias = async () => {
       try {
+        setLoadingHolCompetencias(true);
         setCompetenciasHolLoaded(false);
         setCompetenciasHol([]);
         setSelectedYearHol(null);
@@ -1155,6 +1274,9 @@ export default function ListarPage() {
           empresa: selectedEmpresaId,
         });
 
+        if (cancelled) return;
+        if (requestId !== holeriteCompetenciasRequestRef.current) return;
+
         const lista = (res.data?.competencias ?? []).map((x) => ({
           ano: x.ano,
           mes: String(x.mes).padStart(2, "0"),
@@ -1162,13 +1284,22 @@ export default function ListarPage() {
 
         setCompetenciasHol(lista);
       } catch {
+        if (cancelled) return;
+        if (requestId !== holeriteCompetenciasRequestRef.current) return;
         setCompetenciasHol([]);
       } finally {
+        if (cancelled) return;
+        if (requestId !== holeriteCompetenciasRequestRef.current) return;
+        setLoadingHolCompetencias(false);
         setCompetenciasHolLoaded(true);
       }
     };
 
     void loadCompetencias();
+
+    return () => {
+      cancelled = true;
+    };
   }, [
     isNonGestor,
     documentMode,
@@ -1280,7 +1411,7 @@ export default function ListarPage() {
 
   useEffect(() => {
     if (!isNonGestor || !isInforme) return;
-    if (!selectedEmpresaIdGen) return;
+    if (!selectedEmpresaInforme) return;
 
     const loadCompetencias = async () => {
       try {
@@ -1292,6 +1423,7 @@ export default function ListarPage() {
           "/documents/informe-rendimentos/competencias",
           {
             cpf: onlyDigits(meCpf),
+            empresa: String(selectedEmpresaInforme),
           },
         );
 
@@ -1306,7 +1438,7 @@ export default function ListarPage() {
     };
 
     void loadCompetencias();
-  }, [isNonGestor, isInforme, selectedEmpresaIdGen, meCpf]);
+  }, [isNonGestor, isInforme, selectedEmpresaInforme, meCpf]);
 
   useEffect(() => {
     if (
@@ -1410,20 +1542,47 @@ export default function ListarPage() {
   }, [cpf, isNonGestor, meCpf, user?.cpf]);
 
   const effectiveEmpresa = useMemo(() => {
-    if (isNonGestor) return String(selectedEmpresaIdGen || "").trim();
+    if (isNonGestor) {
+      if (documentMode === "holerite") {
+        return String(selectedEmpresaId || "").trim();
+      }
+      if (documentMode === "informe_rendimentos") {
+        return String(selectedEmpresaInforme || "").trim();
+      }
+      return String(selectedEmpresaIdGen || "").trim();
+    }
+
     return String(empresa || "").trim();
-  }, [empresa, isNonGestor, selectedEmpresaIdGen]);
+  }, [
+    documentMode,
+    empresa,
+    isNonGestor,
+    selectedEmpresaId,
+    selectedEmpresaIdGen,
+    selectedEmpresaInforme,
+  ]);
 
   const effectiveMatricula = useMemo(() => {
     if (documentMode === "informe_rendimentos") return "";
 
     if (isNonGestor) {
+      if (documentMode === "holerite") {
+        if (selectedEmpresaId) {
+          const empresaData = empresasMap.get(selectedEmpresaId);
+          if (empresaData?.matriculas.length === 1) {
+            return String(empresaData.matriculas[0] || "").trim();
+          }
+        }
+        return String(selectedMatricula || "").trim();
+      }
+
       if (selectedEmpresaIdGen) {
         const empresaData = empresasMap.get(selectedEmpresaIdGen);
         if (empresaData?.matriculas.length === 1) {
           return String(empresaData.matriculas[0] || "").trim();
         }
       }
+
       return String(selectedMatriculaGen || "").trim();
     }
 
@@ -1432,9 +1591,11 @@ export default function ListarPage() {
     documentMode,
     isNonGestor,
     matricula,
+    selectedEmpresaId,
     selectedEmpresaIdGen,
-    empresasMap,
+    selectedMatricula,
     selectedMatriculaGen,
+    empresasMap,
   ]);
 
   const mountSelectedHolerite = async (item: SearchDocumentItem) => {
@@ -1456,7 +1617,7 @@ export default function ListarPage() {
 
     const payload: Record<string, unknown> = {
       cpf: effectiveCpf,
-      matricula: showMatriculaField ? effectiveMatricula : "",
+      matricula: effectiveMatricula,
       competencia: normalizeCompetenciaForSearch(
         competencia || String(item.anomes || ""),
         pickerMode,
@@ -1464,7 +1625,7 @@ export default function ListarPage() {
       lote: String(holeriteItem.id_documento || ""),
     };
 
-    if (showEmpresaField && effectiveEmpresa) {
+    if (effectiveEmpresa) {
       payload.empresa = effectiveEmpresa;
     }
 
@@ -1487,6 +1648,10 @@ export default function ListarPage() {
 
   const openItem = async (item: SearchDocumentItem) => {
     try {
+      if (documentMode === "holerite" && isHoleriteSelectionLocked) {
+        return;
+      }
+
       setLoadingPreviewId(String(item.id_documento));
 
       const cpfDigits = effectiveCpf;
@@ -1500,6 +1665,7 @@ export default function ListarPage() {
         selectedMatricula,
         selectedEmpresaIdGen,
         selectedMatriculaGen,
+        selectedEmpresaInforme,
       });
 
       const itemJsonObj =
@@ -1525,7 +1691,10 @@ export default function ListarPage() {
           item: itemJsonObj,
           cpf: cpfDigits,
           matricula: showMatriculaField ? effectiveMatricula : "",
-          empresa: showEmpresaField ? effectiveEmpresa : "",
+          empresa:
+            showEmpresaField || documentMode === "informe_rendimentos"
+              ? effectiveEmpresa
+              : "",
           competencia: competenciaNormalizada,
         });
       }
@@ -1562,7 +1731,7 @@ export default function ListarPage() {
         kind: isRecibo ? "generico" : documentMode,
         cpf: formatCpfInput(cpfDigits),
         matricula: showMatriculaField ? effectiveMatricula : "",
-        empresa: showEmpresaField ? effectiveEmpresa : "",
+        empresa: effectiveEmpresa,
         competencia: competencia || String(item.anomes || ""),
         lote: String(item.id_documento || ""),
         uuid:
@@ -1611,7 +1780,10 @@ export default function ListarPage() {
         return;
       }
 
-      if (showEmpresaField && !String(effectiveEmpresa || "").trim()) {
+      if (
+        (showEmpresaField || documentMode === "informe_rendimentos") &&
+        !String(effectiveEmpresa || "").trim()
+      ) {
         Alert.alert("Aviso", "Informe a empresa antes de buscar.");
         return;
       }
@@ -1636,6 +1808,7 @@ export default function ListarPage() {
         selectedMatricula,
         selectedEmpresaIdGen,
         selectedMatriculaGen,
+        selectedEmpresaInforme,
       });
 
       let data: unknown;
@@ -1662,7 +1835,7 @@ export default function ListarPage() {
           idTipo: params.id,
           cpf: cpfDigits,
           matricula: showMatriculaField ? effectiveMatricula : "",
-          empresa: showEmpresaField ? effectiveEmpresa : "",
+          empresa: effectiveEmpresa,
           competencia: competenciaNormalizada,
           documentoNome: searchDocumentName,
         });
@@ -1870,14 +2043,38 @@ export default function ListarPage() {
 
   const handleNonGestorInforme = async (ano: number) => {
     try {
+      if (!selectedEmpresaInforme) {
+        Alert.alert("Aviso", "Selecione a empresa para carregar o informe.");
+        return;
+      }
+
       setLoadingSearch(true);
 
-      const res = await api.post<any>("/documents/informe-rendimentos/montar", {
+      const payload = {
         cpf: onlyDigits(meCpf),
         competencia: String(ano),
-      });
+        empresa: String(selectedEmpresaInforme),
+      };
 
-      if (!res?.data?.pdf_base64) {
+      const buscarRes = await api.post<any>(
+        "/documents/informe-rendimentos/buscar",
+        payload,
+      );
+
+      if (!buscarRes?.data?.informes?.length) {
+        Alert.alert(
+          "Aviso",
+          "Nenhum informe de rendimentos encontrado para o ano selecionado.",
+        );
+        return;
+      }
+
+      const montarRes = await api.post<any>(
+        "/documents/informe-rendimentos/montar",
+        payload,
+      );
+
+      if (!montarRes?.data?.pdf_base64) {
         Alert.alert(
           "Aviso",
           "O backend não retornou um PDF para o informe de rendimentos.",
@@ -1886,18 +2083,24 @@ export default function ListarPage() {
       }
 
       setCompetencia(String(ano));
-      saveParams({ competencia: String(ano), selectedEmpresaIdGen });
+      saveParams({
+        competencia: String(ano),
+        selectedEmpresaInforme: String(selectedEmpresaInforme),
+      });
 
       openPdfRoute({
-        pdfBase64: res.data.pdf_base64,
+        pdfBase64: montarRes.data.pdf_base64,
         title: "Informe de Rendimentos",
         kind: "informe_rendimentos",
         cpf: formatCpfInput(onlyDigits(meCpf)),
-        matricula: String(res?.data?.informes?.[0]?.matricula ?? ""),
-        empresa: "",
+        matricula: String(buscarRes?.data?.informes?.[0]?.matricula ?? ""),
+        empresa: String(selectedEmpresaInforme),
         competencia: String(ano),
         lote: "1",
-        itemJson: JSON.stringify(res.data),
+        itemJson: JSON.stringify({
+          ...buscarRes.data,
+          pdf_base64: montarRes.data.pdf_base64,
+        }),
       });
     } catch (error) {
       Alert.alert(
@@ -2003,12 +2206,14 @@ export default function ListarPage() {
             ? `${item.matriculas.length} matr.`
             : undefined,
         onPress: () => {
+          if (isHoleriteSelectionLocked) return;
+
           resetHoleriteFlow({ keepEmpresa: true, keepMatricula: false });
           setSelectedEmpresaId(item.id);
           saveParams({ selectedEmpresaId: item.id, selectedMatricula: "" });
         },
       })),
-    [empresaOptions],
+    [empresaOptions, isHoleriteSelectionLocked],
   );
 
   const empresaButtonsGen: DiscoveryOption[] = useMemo(
@@ -2032,18 +2237,34 @@ export default function ListarPage() {
     [empresaOptions],
   );
 
+  const empresaButtonsInforme: DiscoveryOption[] = useMemo(
+    () =>
+      informeEmpresaOptions.map((item) => ({
+        key: item.empresa,
+        label: item.nome_empresa || `Empresa ${item.empresa}`,
+        onPress: () => {
+          resetInformeFlow(true);
+          setSelectedEmpresaInforme(item.empresa);
+          saveParams({ selectedEmpresaInforme: item.empresa });
+        },
+      })),
+    [informeEmpresaOptions],
+  );
+
   const matriculaButtonsHol: DiscoveryOption[] = useMemo(
     () =>
       matriculaOptions.map((m) => ({
         key: m,
         label: `Matrícula ${m}`,
         onPress: () => {
+          if (isHoleriteSelectionLocked) return;
+
           resetHoleriteFlow({ keepEmpresa: true, keepMatricula: true });
           setSelectedMatricula(m);
           saveParams({ selectedMatricula: m });
         },
       })),
-    [matriculaOptions],
+    [matriculaOptions, isHoleriteSelectionLocked],
   );
 
   const matriculaButtonsGen: DiscoveryOption[] = useMemo(
@@ -2168,7 +2389,7 @@ export default function ListarPage() {
             options={empresaButtonsHol}
             selectedLabel={selectedEmpresaObj?.nome || ""}
             onReset={
-              selectedEmpresaId
+              selectedEmpresaId && !isHoleriteSelectionLocked
                 ? () => {
                     resetHoleriteFlow();
                     saveParams({
@@ -2195,7 +2416,9 @@ export default function ListarPage() {
                   : ""
             }
             onReset={
-              requerEscolherMatricula && selectedMatricula
+              requerEscolherMatricula &&
+              selectedMatricula &&
+              !isHoleriteSelectionLocked
                 ? () => {
                     resetHoleriteFlow({
                       keepEmpresa: true,
@@ -2226,7 +2449,9 @@ export default function ListarPage() {
             loading={
               loadingSearch ||
               !!meLoading ||
-              (!!selectedEmpresaId && !competenciasHolLoaded)
+              !!loadingPreviewId ||
+              (!!selectedEmpresaId &&
+                (loadingHolCompetencias || !competenciasHolLoaded))
             }
             emptyText="Nenhum período de holerite encontrado para a seleção atual."
           >
@@ -2411,18 +2636,37 @@ export default function ListarPage() {
     if (isInforme) {
       return (
         <>
-          {renderEmpresaSection()}
+          <DiscoveryGridSection
+            title="Empresa"
+            options={empresaButtonsInforme}
+            selectedLabel={
+              selectedEmpresaInformeObj?.nome_empresa ||
+              (selectedEmpresaInforme
+                ? `Empresa ${selectedEmpresaInforme}`
+                : "")
+            }
+            onReset={
+              selectedEmpresaInforme
+                ? () => {
+                    resetInformeFlow();
+                    saveParams({ selectedEmpresaInforme: "" });
+                  }
+                : undefined
+            }
+            resetLabel="Trocar empresa"
+            emptyText="Nenhuma empresa encontrada."
+          />
 
           <DiscoveryActionCard
             title="Competências disponíveis"
             loading={
               loadingSearch ||
               !!meLoading ||
-              (!!selectedEmpresaIdGen && !competenciasInformeLoaded)
+              (!!selectedEmpresaInforme && !competenciasInformeLoaded)
             }
             emptyText="Nenhuma competência encontrada para informe de rendimentos."
           >
-            {!selectedEmpresaIdGen ? (
+            {!selectedEmpresaInforme ? (
               <DiscoveryInfoBanner text="Selecione uma empresa para carregar as competências." />
             ) : (
               <DiscoveryGridSection
