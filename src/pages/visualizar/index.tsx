@@ -1020,17 +1020,144 @@ export default function VisualizarPage() {
     itemJson,
   ]);
 
+  const holeriteMeta = useMemo(() => {
+    const cab = holeriteCabecalho;
+
+    return {
+      empresa: pickMeaningfulString(
+        cab?.empresa,
+        routeCabecalho?.empresa,
+        remoteCabecalho?.empresa,
+        params.empresa,
+      ),
+      empresaNome: pickMeaningfulString(
+        cab?.empresa_nome,
+        routeCabecalho?.empresa_nome,
+        remoteCabecalho?.empresa_nome,
+        params.empresaNome,
+      ),
+      empresaCnpj: pickMeaningfulString(
+        cab?.empresa_cnpj,
+        routeCabecalho?.empresa_cnpj,
+        remoteCabecalho?.empresa_cnpj,
+        params.empresaCnpj,
+      ),
+      filial: pickMeaningfulString(
+        cab?.filial,
+        routeCabecalho?.filial,
+        remoteCabecalho?.filial,
+        params.filial,
+      ),
+      cliente: pickMeaningfulString(
+        cab?.cliente,
+        routeCabecalho?.cliente,
+        remoteCabecalho?.cliente,
+        params.cliente,
+      ),
+      clienteNome: pickMeaningfulString(
+        cab?.cliente_nome,
+        routeCabecalho?.cliente_nome,
+        remoteCabecalho?.cliente_nome,
+        params.clienteNome,
+      ),
+      clienteCnpj: pickMeaningfulString(
+        cab?.cliente_cnpj,
+        routeCabecalho?.cliente_cnpj,
+        remoteCabecalho?.cliente_cnpj,
+        params.clienteCnpj,
+      ),
+      nome: pickMeaningfulString(
+        cab?.nome,
+        routeCabecalho?.nome,
+        remoteCabecalho?.nome,
+        params.nome,
+      ),
+      funcaoNome: pickMeaningfulString(
+        cab?.funcao_nome,
+        routeCabecalho?.funcao_nome,
+        remoteCabecalho?.funcao_nome,
+        params.funcaoNome,
+      ),
+      admissao: pickMeaningfulString(
+        cab?.admissao,
+        routeCabecalho?.admissao,
+        remoteCabecalho?.admissao,
+        params.admissao,
+      ),
+      matricula: pickMeaningfulString(
+        cab?.matricula,
+        routeCabecalho?.matricula,
+        remoteCabecalho?.matricula,
+        routeMatricula,
+      ),
+      competencia: normalizeCompetencia(
+        cab?.competencia ||
+          routeCabecalho?.competencia ||
+          remoteCabecalho?.competencia ||
+          routeCompetencia,
+      ),
+      uuid: pickMeaningfulString(
+        cab?.uuid,
+        routeCabecalho?.uuid,
+        remoteCabecalho?.uuid,
+        params.uuid,
+        extractUuidFromAny(mountedData),
+        extractUuidFromAny(remoteData),
+        extractUuidFromAny(itemJson),
+      ),
+      lote: pickMeaningfulString(
+        cab?.lote,
+        routeCabecalho?.lote,
+        remoteCabecalho?.lote,
+        params.lote,
+      ),
+      tipoCalculo: pickMeaningfulString(
+        cab?.tipo_calculo,
+        routeCabecalho?.tipo_calculo,
+        remoteCabecalho?.tipo_calculo,
+        (itemJson as any)?.tipo_calculo,
+      ),
+      idGed: pickMeaningfulString(params.idGed),
+    };
+  }, [
+    holeriteCabecalho,
+    routeCabecalho,
+    remoteCabecalho,
+    params.empresa,
+    params.empresaNome,
+    params.empresaCnpj,
+    params.filial,
+    params.cliente,
+    params.clienteNome,
+    params.clienteCnpj,
+    params.nome,
+    params.funcaoNome,
+    params.admissao,
+    params.uuid,
+    params.lote,
+    params.idGed,
+    routeMatricula,
+    routeCompetencia,
+    mountedData,
+    remoteData,
+    itemJson,
+  ]);
+
+  const resolvedMeta = useMemo(() => {
+    return tipo === "holerite" ? holeriteMeta : mergedMeta;
+  }, [tipo, holeriteMeta, mergedMeta]);
+
   const unidade = useMemo(() => {
-    if (mergedMeta.clienteNome) {
-      return `${mergedMeta.cliente}${mergedMeta.cliente ? " " : ""}${mergedMeta.clienteNome}`.trim();
+    if (resolvedMeta.clienteNome) {
+      return `${resolvedMeta.cliente}${resolvedMeta.cliente ? " " : ""}${resolvedMeta.clienteNome}`.trim();
     }
 
-    if (mergedMeta.empresaNome) {
-      return `${mergedMeta.empresa}${mergedMeta.empresa ? " " : ""}${mergedMeta.empresaNome}`.trim();
+    if (resolvedMeta.empresaNome) {
+      return `${resolvedMeta.empresa}${resolvedMeta.empresa ? " " : ""}${resolvedMeta.empresaNome}`.trim();
     }
 
-    return String(mergedMeta.cliente || mergedMeta.empresa || "").trim();
-  }, [mergedMeta]);
+    return String(resolvedMeta.cliente || resolvedMeta.empresa || "").trim();
+  }, [resolvedMeta]);
 
   useEffect(() => {
     let active = true;
@@ -1077,14 +1204,14 @@ export default function VisualizarPage() {
             ? resolvedBeneficios.length > 0
             : tipo === "informe_rendimentos"
               ? resolvedInformes.length > 0
-              : !!mergedMeta.matricula;
+              : !!resolvedMeta.matricula;
 
       if (alreadyEnough && (remoteData || mountedData || itemJson)) return;
 
       try {
         if (
           tipo === "holerite" &&
-          (itemJson || mergedMeta.uuid || mergedMeta.lote)
+          (itemJson || resolvedMeta.uuid || resolvedMeta.lote)
         ) {
           return;
         }
@@ -1092,9 +1219,9 @@ export default function VisualizarPage() {
         const result = await searchDocuments({
           kind: tipo,
           cpf: cpfDigits,
-          matricula: mergedMeta.matricula,
-          empresa: mergedMeta.empresa || mergedMeta.cliente,
-          competencia: mergedMeta.competencia,
+          matricula: resolvedMeta.matricula,
+          empresa: resolvedMeta.empresa || resolvedMeta.cliente,
+          competencia: resolvedMeta.competencia,
         });
 
         if (!active) return;
@@ -1112,10 +1239,12 @@ export default function VisualizarPage() {
   }, [
     tipo,
     cpfDigits,
-    mergedMeta.matricula,
-    mergedMeta.empresa,
-    mergedMeta.cliente,
-    mergedMeta.competencia,
+    resolvedMeta.matricula,
+    resolvedMeta.empresa,
+    resolvedMeta.cliente,
+    resolvedMeta.competencia,
+    resolvedMeta.uuid,
+    resolvedMeta.lote,
     resolvedBeneficios.length,
     resolvedInformes.length,
     remoteData,
@@ -1179,8 +1308,8 @@ export default function VisualizarPage() {
       const hasEnoughToMount =
         !!itemForMount ||
         !!cpfDigits ||
-        !!mergedMeta.idGed ||
-        !!mergedMeta.uuid;
+        !!resolvedMeta.idGed ||
+        !!resolvedMeta.uuid;
 
       if (!hasEnoughToMount) return;
 
@@ -1191,17 +1320,17 @@ export default function VisualizarPage() {
             tipo === "holerite"
               ? {
                   ...(itemForMount || {}),
-                  lote: mergedMeta.lote || (itemForMount as any)?.lote,
-                  uuid: mergedMeta.uuid || (itemForMount as any)?.uuid,
+                  lote: resolvedMeta.lote || (itemForMount as any)?.lote,
+                  uuid: resolvedMeta.uuid || (itemForMount as any)?.uuid,
                   tipo_calculo:
-                    mergedMeta.tipoCalculo ||
+                    resolvedMeta.tipoCalculo ||
                     (itemForMount as any)?.tipo_calculo,
                 }
               : itemForMount,
           cpf: cpfDigits,
-          matricula: mergedMeta.matricula,
-          empresa: mergedMeta.empresa || mergedMeta.cliente,
-          competencia: mergedMeta.competencia,
+          matricula: resolvedMeta.matricula,
+          empresa: resolvedMeta.empresa || resolvedMeta.cliente,
+          competencia: resolvedMeta.competencia,
         });
 
         if (!active) return;
@@ -1235,14 +1364,14 @@ export default function VisualizarPage() {
     tipo,
     cpfDigits,
     itemForMount,
-    mergedMeta.matricula,
-    mergedMeta.empresa,
-    mergedMeta.cliente,
-    mergedMeta.competencia,
-    mergedMeta.idGed,
-    mergedMeta.uuid,
-    mergedMeta.lote,
-    mergedMeta.tipoCalculo,
+    resolvedMeta.matricula,
+    resolvedMeta.empresa,
+    resolvedMeta.cliente,
+    resolvedMeta.competencia,
+    resolvedMeta.idGed,
+    resolvedMeta.uuid,
+    resolvedMeta.lote,
+    resolvedMeta.tipoCalculo,
   ]);
 
   useEffect(() => {
@@ -1252,8 +1381,8 @@ export default function VisualizarPage() {
       try {
         setIsCheckingStatus(true);
 
-        const uuid = mergedMeta.uuid || undefined;
-        const idGed = mergedMeta.idGed || undefined;
+        const uuid = resolvedMeta.uuid || undefined;
+        const idGed = resolvedMeta.idGed || undefined;
 
         if (tipo === "holerite" || tipo === "beneficios" || tipo === "ferias") {
           if (!uuid) {
@@ -1285,17 +1414,17 @@ export default function VisualizarPage() {
     return () => {
       active = false;
     };
-  }, [tipo, mergedMeta.uuid, mergedMeta.idGed]);
+  }, [tipo, resolvedMeta.uuid, resolvedMeta.idGed]);
 
   const fileName = useMemo(
     () =>
       buildDownloadName({
         tipo,
         title,
-        matricula: mergedMeta.matricula,
-        competencia: mergedMeta.competencia,
+        matricula: resolvedMeta.matricula,
+        competencia: resolvedMeta.competencia,
       }),
-    [tipo, title, mergedMeta.matricula, mergedMeta.competencia],
+    [tipo, title, resolvedMeta.matricula, resolvedMeta.competencia],
   );
 
   async function onShare() {
@@ -1328,7 +1457,7 @@ export default function VisualizarPage() {
     const requiresMatricula =
       tipo === "holerite" || tipo === "beneficios" || tipo === "ferias";
 
-    if (requiresMatricula && !mergedMeta.matricula) {
+    if (requiresMatricula && !resolvedMeta.matricula) {
       Alert.alert(
         "Erro",
         "Matrícula não encontrada para confirmar o documento.",
@@ -1336,7 +1465,7 @@ export default function VisualizarPage() {
       return;
     }
 
-    if (requiresMatricula && !/^\d{6}$/.test(mergedMeta.competencia)) {
+    if (requiresMatricula && !/^\d{6}$/.test(resolvedMeta.competencia)) {
       Alert.alert("Erro", "Competência inválida para confirmar o documento.");
       return;
     }
@@ -1350,16 +1479,16 @@ export default function VisualizarPage() {
           tipo === "generico" ? String(params.kind || "generico") : tipo,
         base64: effectivePdf,
         cpf: cpfDigits,
-        matricula: mergedMeta.matricula,
+        matricula: resolvedMeta.matricula,
         unidade,
-        competencia: mergedMeta.competencia,
+        competencia: resolvedMeta.competencia,
         uuid:
           tipo === "holerite" || tipo === "beneficios" || tipo === "ferias"
-            ? mergedMeta.uuid || undefined
+            ? resolvedMeta.uuid || undefined
             : undefined,
         id_ged:
           tipo === "generico" || tipo === "informe_rendimentos"
-            ? mergedMeta.idGed || undefined
+            ? resolvedMeta.idGed || undefined
             : undefined,
       });
 
@@ -1491,38 +1620,38 @@ export default function VisualizarPage() {
 
                       <Text style={styles.headText}>
                         <Text style={styles.headTextBold}>Empresa: </Text>
-                        {padLeft(mergedMeta.empresa || "", 3)}
-                        {mergedMeta.filial ? ` - ${mergedMeta.filial}` : ""}
-                        {mergedMeta.empresaNome
-                          ? ` ${mergedMeta.empresaNome}`
+                        {padLeft(resolvedMeta.empresa || "", 3)}
+                        {resolvedMeta.filial ? ` - ${resolvedMeta.filial}` : ""}
+                        {resolvedMeta.empresaNome
+                          ? ` ${resolvedMeta.empresaNome}`
                           : ""}
                       </Text>
 
-                      {!!mergedMeta.empresaCnpj && (
+                      {!!resolvedMeta.empresaCnpj && (
                         <Text style={styles.headMeta}>
                           <Text style={styles.headTextBold}>
                             Nº Inscrição:{" "}
                           </Text>
-                          {mergedMeta.empresaCnpj}
+                          {resolvedMeta.empresaCnpj}
                         </Text>
                       )}
 
-                      {!!mergedMeta.clienteNome || !!mergedMeta.cliente ? (
+                      {!!resolvedMeta.clienteNome || !!resolvedMeta.cliente ? (
                         <Text style={styles.headText}>
                           <Text style={styles.headTextBold}>Cliente: </Text>
-                          {mergedMeta.cliente || ""}
-                          {mergedMeta.clienteNome
-                            ? ` ${mergedMeta.clienteNome}`
+                          {resolvedMeta.cliente || ""}
+                          {resolvedMeta.clienteNome
+                            ? ` ${resolvedMeta.clienteNome}`
                             : ""}
                         </Text>
                       ) : null}
 
-                      {!!mergedMeta.clienteCnpj && (
+                      {!!resolvedMeta.clienteCnpj && (
                         <Text style={styles.headMeta}>
                           <Text style={styles.headTextBold}>
                             Nº Inscrição:{" "}
                           </Text>
-                          {mergedMeta.clienteCnpj}
+                          {resolvedMeta.clienteCnpj}
                         </Text>
                       )}
                     </View>
@@ -1532,35 +1661,35 @@ export default function VisualizarPage() {
                     <View style={styles.infoBlock}>
                       <Text style={styles.infoLabel}>Código</Text>
                       <Text style={styles.infoValue}>
-                        {padLeft(mergedMeta.matricula || "-", 6)}
+                        {padLeft(resolvedMeta.matricula || "-", 6)}
                       </Text>
                     </View>
 
-                    {!!mergedMeta.nome && (
+                    {!!resolvedMeta.nome && (
                       <View style={styles.infoBlock}>
                         <Text style={styles.infoLabel}>
                           Nome do Funcionário
                         </Text>
                         <Text style={styles.infoValue}>
-                          {truncate(mergedMeta.nome, 30)}
+                          {truncate(resolvedMeta.nome, 30)}
                         </Text>
                       </View>
                     )}
 
-                    {!!mergedMeta.funcaoNome && (
+                    {!!resolvedMeta.funcaoNome && (
                       <View style={styles.infoBlock}>
                         <Text style={styles.infoLabel}>Função</Text>
                         <Text style={styles.infoValue}>
-                          {mergedMeta.funcaoNome}
+                          {resolvedMeta.funcaoNome}
                         </Text>
                       </View>
                     )}
 
-                    {!!mergedMeta.admissao && (
+                    {!!resolvedMeta.admissao && (
                       <View style={styles.infoBlock}>
                         <Text style={styles.infoLabel}>Admissão</Text>
                         <Text style={styles.infoValue}>
-                          {mergedMeta.admissao}
+                          {resolvedMeta.admissao}
                         </Text>
                       </View>
                     )}
@@ -1569,8 +1698,7 @@ export default function VisualizarPage() {
                       <Text style={styles.infoLabel}>Competência</Text>
                       <Text style={styles.infoValue}>
                         {normalizeCompetenciaLabel(
-                          holeriteCabecalho?.competencia ||
-                            mergedMeta.competencia,
+                          resolvedMeta.competencia,
                         )}
                       </Text>
                     </View>
@@ -1692,39 +1820,39 @@ export default function VisualizarPage() {
 
                       <Text style={styles.headText}>
                         <Text style={styles.headTextBold}>Empresa: </Text>
-                        {padLeft(mergedMeta.empresa || "", 3)}
-                        {mergedMeta.filial ? ` - ${mergedMeta.filial}` : ""}
-                        {mergedMeta.empresaNome
-                          ? ` ${mergedMeta.empresaNome}`
+                        {padLeft(resolvedMeta.empresa || "", 3)}
+                        {resolvedMeta.filial ? ` - ${resolvedMeta.filial}` : ""}
+                        {resolvedMeta.empresaNome
+                          ? ` ${resolvedMeta.empresaNome}`
                           : ""}
                       </Text>
 
-                      {!!mergedMeta.clienteNome || !!mergedMeta.cliente ? (
+                      {!!resolvedMeta.clienteNome || !!resolvedMeta.cliente ? (
                         <Text style={styles.headText}>
                           <Text style={styles.headTextBold}>Cliente: </Text>
-                          {mergedMeta.cliente || ""}
-                          {mergedMeta.clienteNome
-                            ? ` ${mergedMeta.clienteNome}`
+                          {resolvedMeta.cliente || ""}
+                          {resolvedMeta.clienteNome
+                            ? ` ${resolvedMeta.clienteNome}`
                             : ""}
                         </Text>
                       ) : null}
                     </View>
 
                     <View style={styles.headRight}>
-                      {!!mergedMeta.empresaCnpj && (
+                      {!!resolvedMeta.empresaCnpj && (
                         <Text style={styles.headMeta}>
                           <Text style={styles.headTextBold}>
                             Nº Inscrição:{" "}
                           </Text>
-                          {mergedMeta.empresaCnpj}
+                          {resolvedMeta.empresaCnpj}
                         </Text>
                       )}
-                      {!!mergedMeta.clienteCnpj && (
+                      {!!resolvedMeta.clienteCnpj && (
                         <Text style={styles.headMeta}>
                           <Text style={styles.headTextBold}>
                             Nº Inscrição:{" "}
                           </Text>
-                          {mergedMeta.clienteCnpj}
+                          {resolvedMeta.clienteCnpj}
                         </Text>
                       )}
                     </View>
@@ -1734,37 +1862,37 @@ export default function VisualizarPage() {
                     <View style={styles.infoBlock}>
                       <Text style={styles.infoLabel}>Código</Text>
                       <Text style={styles.infoValue}>
-                        {padLeft(mergedMeta.matricula || "-", 6)}
+                        {padLeft(resolvedMeta.matricula || "-", 6)}
                       </Text>
                     </View>
 
-                    {!!mergedMeta.nome &&
-                      String(mergedMeta.nome).trim().toLowerCase() !==
+                    {!!resolvedMeta.nome &&
+                      String(resolvedMeta.nome).trim().toLowerCase() !==
                         "beneficios" && (
                         <View style={styles.infoBlock}>
                           <Text style={styles.infoLabel}>
                             Nome do Funcionário
                           </Text>
                           <Text style={styles.infoValue}>
-                            {truncate(mergedMeta.nome, 30)}
+                            {truncate(resolvedMeta.nome, 30)}
                           </Text>
                         </View>
                       )}
 
-                    {!!mergedMeta.funcaoNome && (
+                    {!!resolvedMeta.funcaoNome && (
                       <View style={styles.infoBlock}>
                         <Text style={styles.infoLabel}>Função</Text>
                         <Text style={styles.infoValue}>
-                          {mergedMeta.funcaoNome}
+                          {resolvedMeta.funcaoNome}
                         </Text>
                       </View>
                     )}
 
-                    {!!mergedMeta.admissao && (
+                    {!!resolvedMeta.admissao && (
                       <View style={styles.infoBlock}>
                         <Text style={styles.infoLabel}>Admissão</Text>
                         <Text style={styles.infoValue}>
-                          {mergedMeta.admissao}
+                          {resolvedMeta.admissao}
                         </Text>
                       </View>
                     )}
@@ -1772,7 +1900,7 @@ export default function VisualizarPage() {
                     <View style={styles.infoBlock}>
                       <Text style={styles.infoLabel}>Competência</Text>
                       <Text style={styles.infoValue}>
-                        {normalizeCompetenciaLabel(mergedMeta.competencia)}
+                        {normalizeCompetenciaLabel(resolvedMeta.competencia)}
                       </Text>
                     </View>
                   </View>
@@ -1886,23 +2014,23 @@ export default function VisualizarPage() {
                       <Text style={styles.headText}>
                         <Text style={styles.headTextBold}>Cliente: </Text>
                         {informePrimeiro?.codigo_cliente ??
-                          mergedMeta.cliente ??
+                          resolvedMeta.cliente ??
                           "-"}{" "}
                         {informePrimeiro?.nome_cliente ??
-                          mergedMeta.clienteNome ??
+                          resolvedMeta.clienteNome ??
                           "-"}
                       </Text>
 
                       <Text style={styles.headText}>
                         <Text style={styles.headTextBold}>Nome: </Text>
-                        {informePrimeiro?.nome ?? mergedMeta.nome ?? "-"}
+                        {informePrimeiro?.nome ?? resolvedMeta.nome ?? "-"}
                       </Text>
                     </View>
 
                     <View style={styles.headRight}>
                       {!!(
                         informePrimeiro?.cpf_cnpj_cliente ||
-                        mergedMeta.clienteCnpj
+                        resolvedMeta.clienteCnpj
                       ) && (
                         <Text style={styles.headMeta}>
                           <Text style={styles.headTextBold}>
@@ -1910,7 +2038,7 @@ export default function VisualizarPage() {
                           </Text>
                           {String(
                             informePrimeiro?.cpf_cnpj_cliente ||
-                              mergedMeta.clienteCnpj,
+                              resolvedMeta.clienteCnpj,
                           )}
                         </Text>
                       )}
@@ -1923,7 +2051,7 @@ export default function VisualizarPage() {
                       <Text style={styles.infoValue}>
                         {String(
                           informePrimeiro?.codigo_empresa ??
-                            mergedMeta.empresa ??
+                            resolvedMeta.empresa ??
                             "-",
                         )}
                       </Text>
@@ -1941,7 +2069,7 @@ export default function VisualizarPage() {
                       <Text style={styles.infoValue}>
                         {String(
                           (informePrimeiro?.matricula ??
-                            mergedMeta.matricula) ||
+                            resolvedMeta.matricula) ||
                             "-",
                         )}
                       </Text>
@@ -1952,7 +2080,7 @@ export default function VisualizarPage() {
                       <Text style={styles.infoValue}>
                         {String(
                           (informePrimeiro?.competencia ??
-                            mergedMeta.competencia) ||
+                            resolvedMeta.competencia) ||
                             "-",
                         )}
                       </Text>

@@ -80,10 +80,10 @@ export function SideMenu({
             <Text style={styles.menuItemPlainText}>Início</Text>
           </Pressable>
 
-          <Pressable style={styles.menuItemBorder}>
+          {/* <Pressable style={styles.menuItemBorder}>
             <Ionicons name="sunny-outline" size={20} color="#ffffff" />
             <Text style={styles.menuItemBorderText}>Tema</Text>
-          </Pressable>
+          </Pressable> */}
 
           <Pressable onPress={onLogout} style={styles.logoutButton}>
             <Ionicons name="log-out-outline" size={20} color="#ff2d20" />

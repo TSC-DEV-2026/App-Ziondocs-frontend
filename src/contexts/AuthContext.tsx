@@ -1,7 +1,26 @@
-import React, { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState } from "react";
+import React, {
+  createContext,
+  useCallback,
+  useContext,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+} from "react";
 import { router } from "expo-router";
-import { api, clearAccessToken, friendlyErrorMessage, persistAccessTokenFromResponse } from "@/lib/api";
-import { clearAuthLocalState, getItem, removeItem, setItem, StorageKeys } from "@/lib/storage";
+import {
+  api,
+  clearAccessToken,
+  friendlyErrorMessage,
+  persistAccessTokenFromResponse,
+} from "@/lib/api";
+import {
+  clearAuthLocalState,
+  getItem,
+  removeItem,
+  setItem,
+  StorageKeys,
+} from "@/lib/storage";
 import type { LoginPayload, User } from "@/types/auth";
 
 type AuthContextType = {
@@ -38,7 +57,8 @@ function normalizeUser(data: User): User {
   return {
     ...data,
     interno: data?.interno === true,
-    senha_trocada: typeof data?.senha_trocada === "boolean" ? data.senha_trocada : null,
+    senha_trocada:
+      typeof data?.senha_trocada === "boolean" ? data.senha_trocada : null,
   };
 }
 
@@ -47,9 +67,13 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [isAuthenticated, setIsAuthenticated] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
   const [isLoggingIn, setIsLoggingIn] = useState(false);
-  const [internalTokenValidated, setInternalTokenValidatedState] = useState(false);
-  const [internalTokenBlockedInSession, setInternalTokenBlockedInSessionState] = useState(false);
-  const [internalTokenPromptedInSession, setInternalTokenPromptedInSessionState] = useState(false);
+  const [internalTokenValidated, setInternalTokenValidatedState] =
+    useState(false);
+  const [internalTokenBlockedInSession, setInternalTokenBlockedInSessionState] =
+    useState(false);
+  const [internalTokenPromptedInSession, setInternalTokenPromptedInSessionState] =
+    useState(false);
+
   const loginPasswordRef = useRef<string | null>(null);
   const inflightRef = useRef<Promise<User | null> | null>(null);
 
@@ -69,7 +93,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     await Promise.all([
       removeItem(StorageKeys.internalTokenValidated),
       removeItem(StorageKeys.internalTokenBlocked),
-      removeItem(StorageKeys.internalTokenPrompted)
+      removeItem(StorageKeys.internalTokenPrompted),
     ]);
   }, []);
 
@@ -117,19 +141,22 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     return await fetchMe(true);
   }, [fetchMe]);
 
-  const login = useCallback(async (payload: LoginPayload) => {
-    setIsLoggingIn(true);
-    setLoginPassword(payload.senha);
+  const login = useCallback(
+    async (payload: LoginPayload) => {
+      setIsLoggingIn(true);
+      setLoginPassword(payload.senha);
 
-    try {
-      const res = await api.post("/user/login-mobile", payload);
-      await persistAccessTokenFromResponse(res.data);
-      const me = await fetchMe(true);
-      return me;
-    } finally {
-      setIsLoggingIn(false);
-    }
-  }, [fetchMe, setLoginPassword]);
+      try {
+        const res = await api.post("/user/login-mobile", payload);
+        await persistAccessTokenFromResponse(res.data);
+        const me = await fetchMe(true);
+        return me;
+      } finally {
+        setIsLoggingIn(false);
+      }
+    },
+    [fetchMe, setLoginPassword],
+  );
 
   const logout = useCallback(async () => {
     try {
@@ -140,11 +167,14 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       clearLoginPassword();
       setUser(null);
       setIsAuthenticated(false);
+
       await clearAccessToken();
       await clearAuthLocalState();
+      await clearInternalTokenSession();
+
       router.replace("/login");
     }
-  }, [clearLoginPassword]);
+  }, [clearLoginPassword, clearInternalTokenSession]);
 
   const beginLogin = useCallback(() => {
     setIsLoggingIn(true);
@@ -157,9 +187,15 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   useEffect(() => {
     (async () => {
       setIsLoading(true);
-      setInternalTokenValidatedState(await readBool(StorageKeys.internalTokenValidated));
-      setInternalTokenBlockedInSessionState(await readBool(StorageKeys.internalTokenBlocked));
-      setInternalTokenPromptedInSessionState(await readBool(StorageKeys.internalTokenPrompted));
+      setInternalTokenValidatedState(
+        await readBool(StorageKeys.internalTokenValidated),
+      );
+      setInternalTokenBlockedInSessionState(
+        await readBool(StorageKeys.internalTokenBlocked),
+      );
+      setInternalTokenPromptedInSessionState(
+        await readBool(StorageKeys.internalTokenPrompted),
+      );
       await fetchMe(true);
       setIsLoading(false);
     })();
@@ -174,50 +210,53 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     !internalTokenBlockedInSession &&
     !internalTokenValidated;
 
-  const value = useMemo<AuthContextType>(() => ({
-    user,
-    isAuthenticated,
-    isLoading,
-    isLoggingIn,
-    mustChangePassword,
-    mustValidateInternalToken,
-    internalTokenValidated,
-    internalTokenBlockedInSession,
-    internalTokenPromptedInSession,
-    loginPassword: loginPasswordRef.current,
-    beginLogin,
-    endLogin,
-    login,
-    refreshUser,
-    logout,
-    setInternalTokenValidated,
-    setInternalTokenBlockedInSession,
-    setInternalTokenPromptedInSession,
-    clearInternalTokenSession,
-    setLoginPassword,
-    clearLoginPassword
-  }), [
-    user,
-    isAuthenticated,
-    isLoading,
-    isLoggingIn,
-    mustChangePassword,
-    mustValidateInternalToken,
-    internalTokenValidated,
-    internalTokenBlockedInSession,
-    internalTokenPromptedInSession,
-    beginLogin,
-    endLogin,
-    login,
-    refreshUser,
-    logout,
-    setInternalTokenValidated,
-    setInternalTokenBlockedInSession,
-    setInternalTokenPromptedInSession,
-    clearInternalTokenSession,
-    setLoginPassword,
-    clearLoginPassword
-  ]);
+  const value = useMemo<AuthContextType>(
+    () => ({
+      user,
+      isAuthenticated,
+      isLoading,
+      isLoggingIn,
+      mustChangePassword,
+      mustValidateInternalToken,
+      internalTokenValidated,
+      internalTokenBlockedInSession,
+      internalTokenPromptedInSession,
+      loginPassword: loginPasswordRef.current,
+      beginLogin,
+      endLogin,
+      login,
+      refreshUser,
+      logout,
+      setInternalTokenValidated,
+      setInternalTokenBlockedInSession,
+      setInternalTokenPromptedInSession,
+      clearInternalTokenSession,
+      setLoginPassword,
+      clearLoginPassword,
+    }),
+    [
+      user,
+      isAuthenticated,
+      isLoading,
+      isLoggingIn,
+      mustChangePassword,
+      mustValidateInternalToken,
+      internalTokenValidated,
+      internalTokenBlockedInSession,
+      internalTokenPromptedInSession,
+      beginLogin,
+      endLogin,
+      login,
+      refreshUser,
+      logout,
+      setInternalTokenValidated,
+      setInternalTokenBlockedInSession,
+      setInternalTokenPromptedInSession,
+      clearInternalTokenSession,
+      setLoginPassword,
+      clearLoginPassword,
+    ],
+  );
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;
 }
